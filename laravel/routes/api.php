@@ -24,7 +24,8 @@ use Illuminate\Support\Facades\Route;
 Route::controller(AuthController::class)->group(function () {
     Route::post('auth/login', 'login');
     Route::post('auth/signup', 'register');
-    Route::post('auth/logoutlogout', 'logout');
+    Route::post('auth/logout', 'logout');
+    Route::post('auth/reset-password', 'resetPassword');
 });
 
 Route::group(['middleware' => ['auth:api']], function() {

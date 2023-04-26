@@ -52,11 +52,15 @@ class AuthController extends Controller
                 'password' => 'required|string|min:6',
             ]);
 
+            if( $request->role == 0){
+                return response()->json(['status'=>"401",'result'=>'failed','message'=>"role not define"]);
+            }
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'ulid' => Str::ulid(),
+                'role' =>  $request->role??1,
             ]);
 
             $token = Auth::login($user);
@@ -84,7 +88,7 @@ class AuthController extends Controller
         ]);
     }
 
-    public function refresh()
+    public function resetPassword()
     {
         return response()->json([
             'status' => 'success',
