@@ -1,11 +1,16 @@
 <?php
 
 namespace App\Http\Controllers;
+
+use App\Mail\ResetPasswordMail;
+use App\Models\ResetPassword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -13,7 +18,7 @@ class AuthController extends Controller
 
     public function __construct()
     {
-        $this->middleware('auth:api', ['except' => ['login','register']]);
+        $this->middleware('auth:api', ['except' => ['login', 'register', 'resetPassword', 'resetPasswordLoad', 'resetPasswordCal']]);
     }
 
     public function login(Request $request)
@@ -34,17 +39,17 @@ class AuthController extends Controller
 
         $user = Auth::user();
         return response()->json([
-                'status' => 'success',
-                'user' => $user,
-                'authorisation' => [
-                    'token' => $token,
-                    'type' => 'bearer',
-                ]
-            ]);
-
+            'status' => 'success',
+            'user' => $user,
+            'authorisation' => [
+                'token' => $token,
+                'type' => 'bearer',
+            ]
+        ]);
     }
 
-    public function register(Request $request){
+    public function register(Request $request)
+    {
         try {
             //code...
             $request->validate([
@@ -53,16 +58,16 @@ class AuthController extends Controller
                 'password' => 'required|string|min:6',
             ]);
 
-            if( $request->role == 0){
-                return response()->json(['status'=>"401",'result'=>'failed','message'=>"role not define"]);
+            if ($request->role == 0) {
+                return response()->json(['status' => "401", 'result' => 'failed', 'message' => "role not define"]);
             }
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'ulid' => Str::ulid(),
-                'role' =>  $request->role??1,
-                'created_at'=>Carbon::now()->toDateTime()
+                'role' =>  $request->role ?? 1,
+                'created_at' => Carbon::now()->toDateTime()
             ]);
 
             $token = Auth::login($user);
@@ -76,9 +81,8 @@ class AuthController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
-            dd($e);
+            // dd($e);
         }
-
     }
 
     public function logout()
@@ -90,16 +94,68 @@ class AuthController extends Controller
         ]);
     }
 
-    public function resetPassword()
+    public function resetPassword(Request $request)
     {
-        return response()->json([
-            'status' => 'success',
-            'user' => Auth::user(),
-            'authorisation' => [
-                'token' => Auth::refresh(),
-                'type' => 'bearer',
-            ]
-        ]);
+        try {
+            //code...
+            $user = User::where('email', $request['email'])->get();
+            // dd($user);
+            if (count($user) > 0) {
+                $token = Str::random(40);
+                $domain = URL::to('/');
+                $url = $domain . '/reset-password?token=' . $token;
+
+                $data = [
+                    'url' => $url,
+                    'title' => 'Reset Password',
+                    'body' => "please click on below link to reset your password"
+                ];
+
+                Mail::to('ankush@yopmail.com')->send(new ResetPasswordMail($data));
+                ResetPassword::updateOrCreate(['email' => $request['email']], [
+                    'email' => $request['email'],
+                    'token' => $token,
+                    'created_at' => Carbon::now()->toDateTime(),
+                ]);
+                return response()->json(['status' => 200, 'result' => true, 'message' => 'check your mail to reset password']);
+            } else {
+                return response()->json(['status' => 500, 'result' => false, 'message' => 'user not found']);
+            }
+        } catch (\Exception $e) {
+            // dd($e);
+        }
     }
 
+    public function resetPasswordLoad(Request $request)
+    {
+        try {
+            $resetpassword = ResetPassword::where('token', $request['token'])->get();
+            // dd( $resetpassword[0]['email']);
+            if (isset($request['token'])) {
+                //    dd('check');
+                $user = User::where('email', $resetpassword[0]['email'])->get();
+                return view('resetpasswordload', compact('user'));
+            } else {
+                return view('404');
+            }
+        } catch (\Exception $e) {
+            // dd($e);
+        }
+    }
+    public function resetPasswordCal(Request $request)
+    {
+        try {
+           $request->validate([
+            'password'=>'required|string|min:6|confirmed'
+           ]);
+           $user=User::find($request['id']);
+           $user->password=Hash::make($request['password']);
+           $user->save();
+
+           ResetPassword::where('email',$user['email'])->delete();
+           return "<h1>Your password is reset </h1>";
+        } catch (\Exception $e) {
+            // dd($e);
+        }
+    }
 }
