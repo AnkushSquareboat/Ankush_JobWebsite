@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -61,6 +62,7 @@ class AuthController extends Controller
                 'password' => Hash::make($request->password),
                 'ulid' => Str::ulid(),
                 'role' =>  $request->role??1,
+                'created_at'=>Carbon::now()->toDateTime()
             ]);
 
             $token = Auth::login($user);
